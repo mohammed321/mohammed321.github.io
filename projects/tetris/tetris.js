@@ -6,11 +6,12 @@ const gridLineWidth = 2
 canvas.width = colCount * (cellSize + (2 * gridLineWidth))
 canvas.height = 2 * canvas.width
 const ctx = canvas.getContext("2d")
-
+const gridColor = "#000000"
+const colors = ["#021214", "#ff0000", "#00ff00", "#0000ff", "#da00ff", "#ffda00", "#db3e00", "#0279fc"]
 
 function drawGrid() {
     // draw vertical lines
-    ctx.fillStyle = "#000000";
+    ctx.fillStyle = gridColor;
     for (let col = 0; col < colCount; col++) {
         ctx.fillRect(col * (cellSize + (2 * gridLineWidth)), 0, gridLineWidth, canvas.height)
         ctx.fillRect((col * (cellSize + (2 * gridLineWidth))) + cellSize + gridLineWidth, 0, gridLineWidth, canvas.height)
@@ -22,8 +23,8 @@ function drawGrid() {
     }
 }
 
-function drawCell(i, j) {
-    ctx.fillStyle = "#FF0000";
+function drawCell(i, j, color) {
+    ctx.fillStyle = colors[color];
     ctx.fillRect((cellSize + (2 * gridLineWidth)) * j + gridLineWidth, (cellSize + (2 * gridLineWidth)) * i + gridLineWidth, cellSize, cellSize);
 }
 
@@ -35,20 +36,21 @@ function clearScreen() {
 class Shape {
 
     static _shapes = [
-        {cords: [{y:0, x:0},{y:0, x:1},{y:1, x:0},{y:1, x:1}], boxSize: 2},
-        {cords: [{y:0, x:0},{y:0, x:1},{y:0, x:2},{y:1, x:1}], boxSize: 3},
-        {cords: [{y:0, x:0},{y:0, x:1},{y:0, x:2},{y:0, x:3}], boxSize: 4},
-        {cords: [{y:0, x:1},{y:1, x:1},{y:2, x:1},{y:2, x:0}], boxSize: 3},
-        {cords: [{y:0, x:1},{y:1, x:1},{y:2, x:1},{y:2, x:2}], boxSize: 3},
-        {cords: [{y:0, x:1},{y:1, x:0},{y:1, x:1},{y:2, x:0}], boxSize: 3},
-        {cords: [{y:0, x:1},{y:1, x:1},{y:1, x:2},{y:2, x:2}], boxSize: 3}
+        {cords: [{y:0, x:0},{y:0, x:1},{y:1, x:0},{y:1, x:1}], boxSize: 2, color: 1},
+        {cords: [{y:0, x:0},{y:0, x:1},{y:0, x:2},{y:1, x:1}], boxSize: 3, color: 2},
+        {cords: [{y:0, x:0},{y:0, x:1},{y:0, x:2},{y:0, x:3}], boxSize: 4, color: 3},
+        {cords: [{y:0, x:1},{y:1, x:1},{y:2, x:1},{y:2, x:0}], boxSize: 3, color: 4},
+        {cords: [{y:0, x:1},{y:1, x:1},{y:2, x:1},{y:2, x:2}], boxSize: 3, color: 5},
+        {cords: [{y:0, x:1},{y:1, x:0},{y:1, x:1},{y:2, x:0}], boxSize: 3, color: 6},
+        {cords: [{y:0, x:1},{y:1, x:1},{y:1, x:2},{y:2, x:2}], boxSize: 3, color: 7}
     ]
 
-    constructor({cords, boxSize}, pos) {
+    constructor({cords, boxSize}, pos, color) {
         // the first cord in cords is the central point
         this.cords = cords
         this.boxSize = boxSize
         this.pos = pos
+        this.color = color
     }
 
     getPoints() {
@@ -75,28 +77,24 @@ class Shape {
 
     checkRight(gameCells) {
         return this.getPoints().some( point => {
-            if (!this.pointIsInGrid(point)) {
-                return false
-            }
-
             if (point.x + 1 >= colCount) {
                 return true
             }
-
+            if (!this.pointIsInGrid(point)) {
+                return false
+            }
             return gameCells[point.y][point.x + 1] !== 0
         })
     }
 
     checkLeft(gameCells) {
         return this.getPoints().some( point => {
-            if (!this.pointIsInGrid(point)) {
-                return false
-            }
-
             if (point.x - 1 < 0) {
                 return true
             }
-
+            if (!this.pointIsInGrid(point)) {
+                return false
+            }
             return gameCells[point.y][point.x - 1] !== 0
             
         })
@@ -166,14 +164,14 @@ class Shape {
     draw() {
         this.getPoints().forEach(point => {
             if (this.pointIsInGrid(point)) {
-                drawCell(point.y, point.x)
+                drawCell(point.y, point.x, this.color)
             }
         })
     }
 
     static getRandomShape() {
-        let {cords, boxSize} = Shape._shapes[Math.floor(Math.random() * Shape._shapes.length)]
-        return new Shape({cords, boxSize}, {x:Math.floor((colCount+boxSize+1)/2), y:0})
+        let {cords, boxSize, color} = Shape._shapes[Math.floor(Math.random() * Shape._shapes.length)]
+        return new Shape({cords, boxSize}, {x:Math.floor((colCount+boxSize+1)/2), y:0}, color)
     }
 }
 
@@ -189,9 +187,7 @@ class Game {
     drawGameCells() {
         this.gameCells.forEach( (col, i) => {
             col.forEach((val, j) => {
-                if(val != 0) {
-                    drawCell(i, j)
-                }
+                drawCell(i, j, val)
             })
         })
     }
@@ -241,19 +237,21 @@ class Game {
             // add points to grid
             this.currentShape.getPoints().forEach( point => {
                 if (this.currentShape.pointIsInGrid(point)) {
-                    this.gameCells[point.y][point.x] = 1
+                    this.gameCells[point.y][point.x] = this.currentShape.color
                 }
             })
 
             //check completed row
+            let rowsToDelete = new Set()
             this.currentShape.getPoints().forEach( point => {
                 if (this.currentShape.pointIsInGrid(point)) {
                     if(this.checkRowComplete(point.y)) {
-                        this.deleteRow(point.y)
+                        rowsToDelete.add(point.y)
                     }
                 }
             })
-            
+            Array.from(rowsToDelete).sort().forEach( row => this.deleteRow(row))
+
             //update current shape
             this.currentShape = Shape.getRandomShape()
 
@@ -285,6 +283,7 @@ class Game {
     }
 }
 
+let pauseGame = false
 let game = new Game()
 
 window.addEventListener( "keydown", (event) => {
@@ -301,14 +300,25 @@ window.addEventListener( "keydown", (event) => {
             break;
         case "ArrowUp":
         case "w":
-            event.preventDefault()
-            game.input.up = true
+            if (!event.repeat) {
+                event.preventDefault()
+                game.input.up = true
+            }
             break;
         case "ArrowDown":
         case "s":
             event.preventDefault()
             game.input.down = true
             break;
+        case " ":
+            if (!event.repeat) {
+                event.preventDefault()
+                pauseGame = !pauseGame
+                if (!pauseGame) {
+                    gameLoop()
+                }
+            }
+            break
     }
     
 })
@@ -337,9 +347,18 @@ function gameLoop() {
     game.update()
     game.draw()
 
-    setTimeout(() => {
-        window.requestAnimationFrame(gameLoop)
-    }, (1000/Game.framesPerSec));
+    if (!pauseGame) {
+        setTimeout(() => {
+            window.requestAnimationFrame(gameLoop)
+        }, (1000/Game.framesPerSec));
+    }
+    else {
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 30px Arial";
+        // ctx.fillText("PAUSED!", Math.floor(colCount) * (2*gridLineWidth + cellSize), Math.floor(rowCount) * (2*gridLineWidth + cellSize));
+        ctx.fillText("PAUSED!", Math.floor(colCount/2) * (2*gridLineWidth + cellSize) - 1.8*cellSize, (Math.floor(rowCount/2) - 2) * (2*gridLineWidth + cellSize));
+    }
+    
 }
 
 gameLoop()
